@@ -1,0 +1,21 @@
+# Python / Flask
+deepfake_webapp/__pycache__/
+deepfake_webapp/*.pyc
+deepfake_webapp/venv/
+deepfake_webapp/.env
+deepfake_webapp/static/uploads/*
+!deepfake_webapp/static/uploads/.gitkeep
+
+# AI Models (too large for Git)
+deepfake_webapp/*.pt
+deepfake_webapp/*.dat
+
+# ICP / Node.js
+truth_chain/.dfx/
+truth_chain/node_modules/
+truth_chain/dist/
+truth_chain/assetstorage.wasm.gz
+
+# OS / IDE specific
+.vscode/
+.DS_Store

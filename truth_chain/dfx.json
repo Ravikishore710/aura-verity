@@ -1,0 +1,21 @@
+{
+  "canisters": {
+    "truth_chain_backend": {
+      "main": "src/truth_chain_backend/main.mo",
+      "type": "motoko"
+    },
+    "truth_chain_frontend": {
+      "dependencies": [
+        "truth_chain_backend"
+      ],
+      "frontend": {
+        "entrypoint": "src/truth_chain_frontend/src/index.html"
+      },
+      "source": [
+        "src/truth_chain_frontend/src/"
+      ],
+      "type": "assets"
+    }
+  },
+  "version": 1
+}

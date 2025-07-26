@@ -1,0 +1,99 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="text-center">
+    <h2 class="text-4xl md:text-5xl font-extrabold mb-3">Is It <span class="gradient-text">Real?</span></h2>
+    <p class="text-lg text-gray-400 max-w-2xl mx-auto mb-8">
+        Upload an image or video to our advanced AI system. We'll analyze it for subtle signs of digital manipulation and give you a verdict you can trust.
+    </p>
+</div>
+
+<div id="upload-container" class="glass-card p-6 md:p-8 w-full">
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-4">
+        {% for category, message in messages %}
+          <div class="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg relative" role="alert">
+            <strong class="font-bold">Oops!</strong>
+            <span class="block sm:inline">{{ message }}</span>
+          </div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form id="upload-form" action="{{ url_for('analyze_file') }}" method="post" enctype="multipart/form-data">
+        <div id="upload-area" class="border-2 border-dashed border-gray-600 rounded-lg p-10 text-center cursor-pointer hover:border-indigo-400 hover:bg-gray-800/20 transition-all duration-300">
+            <input type="file" name="file" id="file-input" class="hidden">
+            <div class="flex flex-col items-center text-gray-400">
+                <i data-feather="upload-cloud" class="w-16 h-16 mb-4 text-gray-500"></i>
+                <p class="font-semibold text-lg">Click to browse or drag & drop a file</p>
+                <p class="text-sm">Supports: JPG, PNG, MP4, MOV (Max 16MB)</p>
+                <p id="file-name-display" class="mt-4 text-indigo-300 font-medium"></p>
+            </div>
+        </div>
+        <div class="mt-6 text-center">
+            <button type="submit" id="analyze-button" class="btn-primary text-white font-bold py-3 px-8 rounded-full text-lg shadow-lg w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Analyze File
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Spinner (hidden by default) -->
+<div id="loading-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex-col items-center justify-center z-50 hidden">
+    <div class="loader"></div>
+    <p class="text-white text-lg mt-4 font-semibold">Analyzing... this may take a moment.</p>
+</div>
+
+
+<script>
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const analyzeButton = document.getElementById('analyze-button');
+    const uploadForm = document.getElementById('upload-form');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('border-indigo-400', 'bg-gray-800/20');
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('border-indigo-400', 'bg-gray-800/20');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('border-indigo-400', 'bg-gray-800/20');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            updateFileInfo();
+        }
+    });
+
+    fileInput.addEventListener('change', updateFileInfo);
+
+    function updateFileInfo() {
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            fileNameDisplay.textContent = file.name;
+            analyzeButton.disabled = false;
+        } else {
+            fileNameDisplay.textContent = '';
+            analyzeButton.disabled = true;
+        }
+    }
+
+    uploadForm.addEventListener('submit', () => {
+        loadingOverlay.style.display = 'flex';
+    });
+</script>
+{% endblock %}

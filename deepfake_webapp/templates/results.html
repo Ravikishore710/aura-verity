@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="w-full">
+    <div class="text-center mb-8">
+        <!-- FIXED: Replaced the <a> tag with a <form> and <button> for maximum reliability. -->
+        <form action="{{ url_for('index') }}" method="get" class="inline-block">
+            <button type="submit" class="btn-primary text-white font-bold py-2 px-6 rounded-full inline-flex items-center gap-2 transition-all duration-300 hover:shadow-lg cursor-pointer">
+                <i data-feather="arrow-left" class="w-5 h-5"></i>
+                <span>Analyze Another File</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Main Verdict -->
+    <div class="mb-8">
+        {% if results.model_prediction.label == 'FAKE' %}
+            <div class="glass-card bg-red-500/10 border-red-500/30 p-4 flex items-center gap-4">
+                <i data-feather="alert-triangle" class="w-10 h-10 text-red-400 flex-shrink-0"></i>
+                <div>
+                    <p class="text-2xl font-bold text-red-300">Model Verdict: Likely FAKE</p>
+                    <p class="text-red-400">The model is <span class="font-bold">{{ results.model_prediction.confidence }}%</span> confident this media is manipulated. This is the final prediction.</p>
+                </div>
+            </div>
+        {% elif results.model_prediction.label == 'REAL' %}
+            <div class="glass-card bg-green-500/10 border-green-500/30 p-4 flex items-center gap-4">
+                <i data-feather="check-circle" class="w-10 h-10 text-green-400 flex-shrink-0"></i>
+                <div>
+                    <p class="text-2xl font-bold text-green-300">Model Verdict: Likely REAL</p>
+                    <p class="text-green-400">The model is <span class="font-bold">{{ results.model_prediction.confidence }}%</span> confident this media is authentic. This is the final prediction.</p>
+                </div>
+            </div>
+        {% else %}
+             <div class="glass-card bg-yellow-500/10 border-yellow-500/30 p-4 flex items-center gap-4">
+                <i data-feather="help-circle" class="w-10 h-10 text-yellow-400 flex-shrink-0"></i>
+                <div>
+                    <p class="text-2xl font-bold text-yellow-300">Analysis Error</p>
+                    <p class="text-yellow-400">{{ results.model_prediction.details or 'An unknown error occurred.' }}</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Left Column: Visuals -->
+        <div class="space-y-8">
+            <div class="glass-card p-4">
+                <h3 class="font-bold text-lg mb-3 text-white">Original Media</h3>
+                {% if results.file_type == 'image' %}
+                    <img src="{{ url_for('static', filename='uploads/' + results.filename) }}" alt="Uploaded Image" class="max-w-full rounded-lg shadow-2xl">
+                {% elif results.file_type == 'video' %}
+                    <video controls class="w-full rounded-lg shadow-2xl">
+                        <source src="{{ url_for('static', filename='uploads/' + results.filename) }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                {% endif %}
+            </div>
+            <div class="glass-card p-4">
+                <h3 class="font-bold text-lg mb-3 text-white">AI Focus Heatmap</h3>
+                <p class="text-sm text-gray-400 mb-3">A visualization of where the AI might be focusing. Red/Yellow areas indicate higher model attention.</p>
+                {% if results.heatmap_url %}
+                    <img src="{{ url_for('static', filename='uploads/' + results.heatmap_url) }}" alt="Analysis Heatmap" class="max-w-full rounded-lg shadow-2xl">
+                {% else %}
+                    <p class="text-yellow-400">Could not generate heatmap for this file.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Column: Forensic Report -->
+        <div class="glass-card p-6 md:p-8">
+            <h2 class="text-2xl font-bold text-white mb-4">Forensic Reasoning</h2>
+            <p class="text-gray-400 mb-6">These details provide supporting context and do <span class="font-bold">not</span> influence the model's verdict above.</p>
+            <div class="space-y-5">
+                {% if results.reasoning %}
+                    {% for feature, result in results.reasoning.items() %}
+                        <div class="flex items-start gap-4">
+                            <!-- Default icon -->
+                            {% set icon = 'info' %}
+                            {% set color = 'indigo' %}
+
+                            <!-- Logic for simple string results -->
+                            {% if result is string %}
+                                {% if 'Suspicious' in result or 'Error' in result or 'not loaded' in result or 'FAKE' in result %}
+                                    {% set icon = 'x-circle' %}
+                                    {% set color = 'red' %}
+                                {% elif 'Normal' in result or 'consistent' in result or 'REAL' in result %}
+                                    {% set icon = 'check-circle' %}
+                                    {% set color = 'green' %}
+                                {% endif %}
+                            <!-- Logic for dictionary results -->
+                            {% elif result is mapping %}
+                                {% if 'verdict' in result and ('Suspicious' in result.verdict or 'FAKE' in result.verdict) %}
+                                    {% set icon = 'x-circle' %}
+                                    {% set color = 'red' %}
+                                {% elif 'verdict' in result and ('Normal' in result.verdict or 'REAL' in result.verdict) %}
+                                    {% set icon = 'check-circle' %}
+                                    {% set color = 'green' %}
+                                {% endif %}
+                            {% endif %}
+                            
+                            <i data-feather="{{ icon }}" class="w-5 h-5 text-{{ color }}-400 mt-1 flex-shrink-0"></i>
+                            
+                            <div>
+                                <p class="font-semibold text-white">{{ feature }}</p>
+                                <!-- Display logic for different result types -->
+                                {% if result is mapping %}
+                                    <p class="text-sm text-gray-400">
+                                        <span class="font-medium text-gray-300">{{ result.verdict }}</span>
+                                        {% if result.variance is defined %} (Variance: {{ result.variance }}) {% endif %}
+                                        <br>
+                                        <span class="italic">{{ result.comment or '' }}</span>
+                                    </p>
+                                {% else %}
+                                    <p class="text-sm text-gray-400">{{ result }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-400">No forensic analysis could be performed on this file.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Feather Icons script here to ensure it runs on this page -->
+<script>
+    feather.replace();
+</script>
+{% endblock %}

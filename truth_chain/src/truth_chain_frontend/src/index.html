@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraVerity - Deepfake Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #050a19; color: #e0e0e0; }
+        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; }
+        .gradient-text { background: linear-gradient(90deg, #4f46e5, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .btn-primary { background: linear-gradient(90deg, #4f46e5, #6366f1); transition: all 0.3s ease; }
+        .btn-primary:hover { box-shadow: 0 0 20px rgba(79, 70, 229, 0.6); transform: translateY(-2px); }
+        .loader { border: 4px solid rgba(255, 255, 255, 0.2); border-left-color: #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    <header class="absolute top-0 left-0 w-full p-6 flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+            <i data-feather="shield" class="text-indigo-400 w-8 h-8"></i>
+            <h1 class="text-2xl font-bold text-white">Aura<span class="text-indigo-400">Verity</span></h1>
+        </div>
+    </header>
+    <main id="main-content" class="w-full max-w-6xl mx-auto">
+        <!-- Dynamic content will be injected here -->
+    </main>
+    <footer class="absolute bottom-0 w-full text-center p-4 text-gray-500 text-sm">
+        <p>Powered by the Internet Computer</p>
+    </footer>
+
+    <script>
+        const mainContent = document.getElementById('main-content');
+        const FLASK_API_URL = "http://127.0.0.1:5000/analyze";
+        const FLASK_STATIC_URL = "http://127.0.0.1:5000/static/uploads/";
+
+        function showUploadUI() {
+            mainContent.innerHTML = `
+                <div class="text-center">
+                    <h2 class="text-4xl md:text-5xl font-extrabold mb-3">Is It <span class="gradient-text">Real?</span></h2>
+                    <p class="text-lg text-gray-400 max-w-2xl mx-auto mb-8">Upload an image or video to our advanced AI system.</p>
+                </div>
+                <div class="glass-card p-6 md:p-8 w-full max-w-4xl mx-auto">
+                    <form id="upload-form">
+                        <div id="upload-area" class="border-2 border-dashed border-gray-600 rounded-lg p-10 text-center cursor-pointer hover:border-indigo-400 transition-all duration-300">
+                            <input type="file" name="file" id="file-input" class="hidden">
+                            <div class="flex flex-col items-center text-gray-400"><i data-feather="upload-cloud" class="w-16 h-16 mb-4 text-gray-500"></i><p class="font-semibold text-lg">Click to browse or drag & drop a file</p><p id="file-name-display" class="mt-4 text-indigo-300 font-medium"></p></div>
+                        </div>
+                        <div class="mt-6 text-center"><button type="submit" id="analyze-button" class="btn-primary text-white font-bold py-3 px-8 rounded-full text-lg shadow-lg w-full md:w-auto disabled:opacity-50" disabled>Analyze File</button></div>
+                    </form>
+                </div>`;
+            feather.replace();
+            setupUploadListeners();
+        }
+
+        function setupUploadListeners() {
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const uploadForm = document.getElementById('upload-form');
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', () => {
+                const fileNameDisplay = document.getElementById('file-name-display');
+                const analyzeButton = document.getElementById('analyze-button');
+                if (fileInput.files.length > 0) {
+                    fileNameDisplay.textContent = fileInput.files[0].name;
+                    analyzeButton.disabled = false;
+                }
+            });
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (fileInput.files.length === 0) return;
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                showLoadingUI();
+                try {
+                    const response = await fetch(FLASK_API_URL, { method: 'POST', body: formData });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const results = await response.json();
+                    showResultsUI(results);
+                } catch (error) {
+                    console.error("Error:", error);
+                    showErrorUI("Could not connect to the analysis backend. Is the Flask server running?");
+                }
+            });
+        }
+
+        function showLoadingUI() {
+            mainContent.innerHTML = `<div class="text-center glass-card p-10"><div class="loader mx-auto"></div><p class="text-white text-lg mt-4 font-semibold">Analyzing... this may take a moment.</p></div>`;
+        }
+
+        function showErrorUI(message) {
+            mainContent.innerHTML = `<div class="text-center glass-card p-10"><h2 class="text-2xl font-bold text-red-400 mb-4">Analysis Failed</h2><p class="text-red-300">${message}</p><button onclick="showUploadUI()" class="mt-6 btn-primary text-white font-bold py-2 px-6 rounded-full">Try Again</button></div>`;
+        }
+
+        function showResultsUI(results) {
+            const { model_prediction, reasoning, file_type, filename, heatmap_url } = results;
+
+            let verdictHTML = '';
+            if (model_prediction.label === 'FAKE') {
+                verdictHTML = `<div class="glass-card bg-red-500/10 border-red-500/30 p-4 flex items-center gap-4"><i data-feather="alert-triangle" class="w-10 h-10 text-red-400 flex-shrink-0"></i><div><p class="text-2xl font-bold text-red-300">Model Verdict: Likely FAKE</p><p class="text-red-400">The model is <span class="font-bold">${model_prediction.confidence}%</span> confident this media is manipulated.</p></div></div>`;
+            } else if (model_prediction.label === 'REAL') {
+                verdictHTML = `<div class="glass-card bg-green-500/10 border-green-500/30 p-4 flex items-center gap-4"><i data-feather="check-circle" class="w-10 h-10 text-green-400 flex-shrink-0"></i><div><p class="text-2xl font-bold text-green-300">Model Verdict: Likely REAL</p><p class="text-green-400">The model is <span class="font-bold">${model_prediction.confidence}%</span> confident this media is authentic.</p></div></div>`;
+            } else {
+                verdictHTML = `<div class="glass-card bg-yellow-500/10 border-yellow-500/30 p-4 flex items-center gap-4"><i data-feather="help-circle" class="w-10 h-10 text-yellow-400 flex-shrink-0"></i><div><p class="text-2xl font-bold text-yellow-300">Analysis Error</p><p class="text-yellow-400">${model_prediction.details || 'An unknown error occurred.'}</p></div></div>`;
+            }
+
+            const mediaHTML = file_type === 'image'
+                ? `<img src="${FLASK_STATIC_URL}${filename}" alt="Uploaded Image" class="max-w-full rounded-lg shadow-2xl">`
+                : `<video controls class="w-full rounded-lg shadow-2xl"><source src="${FLASK_STATIC_URL}${filename}" type="video/mp4"></video>`;
+
+            const heatmapHTML = heatmap_url
+                ? `<img src="${FLASK_STATIC_URL}${heatmap_url}" alt="Analysis Heatmap" class="max-w-full rounded-lg shadow-2xl">`
+                : `<p class="text-yellow-400">Could not generate heatmap for this file.</p>`;
+
+            let reasoningHTML = '';
+            for (const [feature, result] of Object.entries(reasoning)) {
+                let icon = 'info';
+                let color = 'indigo';
+                let resultText = '';
+
+                if (typeof result === 'string') {
+                    resultText = result;
+                    if (result.includes('Suspicious') || result.includes('Error') || result.includes('FAKE')) { icon = 'x-circle'; color = 'red'; }
+                    else if (result.includes('Normal') || result.includes('consistent')) { icon = 'check-circle'; color = 'green'; }
+                } else if (typeof result === 'object' && result !== null) {
+                    resultText = `<span class="font-medium text-gray-300">${result.verdict}</span>`;
+                    if (result.variance) resultText += ` (Variance: ${result.variance})`;
+                    if (result.comment) resultText += `<br><span class="italic">${result.comment}</span>`;
+                    if (result.verdict.includes('FAKE')) { icon = 'x-circle'; color = 'red'; }
+                    else if (result.verdict.includes('NORMAL')) { icon = 'check-circle'; color = 'green'; }
+                }
+
+                reasoningHTML += `<div class="flex items-start gap-4"><i data-feather="${icon}" class="w-5 h-5 text-${color}-400 mt-1 flex-shrink-0"></i><div><p class="font-semibold text-white">${feature}</p><p class="text-sm text-gray-400">${resultText}</p></div></div>`;
+            }
+
+            mainContent.innerHTML = `
+                <div class="text-center mb-8"><button onclick="showUploadUI()" class="btn-primary text-white font-bold py-2 px-6 rounded-full inline-flex items-center gap-2"> <i data-feather="arrow-left" class="w-5 h-5"></i><span>Analyze Another File</span></button></div>
+                <div class="mb-8">${verdictHTML}</div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="space-y-8">
+                        <div class="glass-card p-4"><h3 class="font-bold text-lg mb-3 text-white">Original Media</h3>${mediaHTML}</div>
+                        <div class="glass-card p-4"><h3 class="font-bold text-lg mb-3 text-white">AI Focus Heatmap</h3>${heatmapHTML}</div>
+                    </div>
+                    <div class="glass-card p-6 md:p-8">
+                        <h2 class="text-2xl font-bold text-white mb-4">Forensic Reasoning</h2>
+                        <p class="text-gray-400 mb-6">These details provide supporting context and do <span class="font-bold">not</span> influence the model's verdict.</p>
+                        <div class="space-y-5">${reasoningHTML}</div>
+                    </div>
+                </div>`;
+            feather.replace();
+        }
+
+        // Initial load
+        showUploadUI();
+    </script>
+</body>
+</html>

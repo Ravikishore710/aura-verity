@@ -1,0 +1,10 @@
+flask
+torch
+torchvision
+Pillow
+opencv-python
+numpy
+dlib-bin
+exifread
+matplotlib
+flask-cors
